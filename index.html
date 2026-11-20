@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FX Research Dashboard</title>
+<style>
+.viz-root{color-scheme:light;--surface-0:#f4f3f0;--surface-1:#fcfcfb;--border:#e2e0db;--grid:#ebe9e4;
+  --text-primary:#0b0b0b;--text-secondary:#52514e;--text-muted:#7a7873;--pos:#2a78d6;--neg:#e34948;--accent:#2a78d6;
+  --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--s4:#eda100;--s5:#e87ba4;--s6:#008300;--s7:#6250d6;--s8:#e34948;
+  --good:#0ca30c;--critical:#d03b3b}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz-root{color-scheme:dark;--surface-0:#121211;
+  --surface-1:#1a1a19;--border:#33332f;--grid:#2a2a27;--text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8d86;
+  --pos:#3987e5;--neg:#e66767;--accent:#3987e5;--s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;
+  --s6:#0ca30c;--s7:#9085e9;--s8:#e66767}}
+:root[data-theme="dark"] .viz-root{color-scheme:dark;--surface-0:#121211;--surface-1:#1a1a19;--border:#33332f;--grid:#2a2a27;
+  --text-primary:#f0efec;--text-secondary:#c3c2b7;--text-muted:#8f8d86;--pos:#3987e5;--neg:#e66767;--accent:#3987e5;
+  --s1:#3987e5;--s2:#d95926;--s3:#199e70;--s4:#c98500;--s5:#d55181;--s6:#0ca30c;--s7:#9085e9;--s8:#e66767}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.viz-root{background:var(--surface-0);color:var(--text-primary);min-height:100vh;padding:20px clamp(12px,3vw,32px) 48px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 16px;margin-bottom:16px}
+h1{font-size:20px;margin:0}
+h2{font-size:15px;margin:0 0 4px}
+.sub{color:var(--text-secondary);font-size:13px}
+.muted{color:var(--text-muted)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--text-secondary);font:inherit;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--text-primary);border-bottom-color:var(--accent);font-weight:600}
+.filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--surface-1)}
+.seg button{background:none;border:0;padding:6px 12px;font:inherit;color:var(--text-secondary);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff}
+select{font:inherit;padding:6px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1);color:var(--text-primary);max-width:320px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.tile{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.tile .k{color:var(--text-secondary);font-size:12px}
+.tile .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(380px,100%),1fr));gap:16px}
+.card{min-width:0}
+.chart{position:relative;width:100%;height:240px}
+svg{display:block;width:100%;height:100%;overflow:visible}
+.axis text{fill:var(--text-muted);font-size:11px}
+.gridline{stroke:var(--grid);stroke-width:1}
+.zero{stroke:var(--text-muted);stroke-width:1}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+td.wrap{white-space:normal;min-width:220px;color:var(--text-secondary);font-size:12px}
+th{color:var(--text-secondary);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--surface-1)}
+th.sort{cursor:pointer}
+.scroll{max-height:420px;overflow:auto}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:1px 8px;border-radius:999px;border:1px solid var(--border)}
+.pill.ok::before{content:"✓";color:var(--good);font-weight:700}
+.pill.no::before{content:"✕";color:var(--critical);font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:6px 0 2px;font-size:12px;color:var(--text-secondary)}
+.legend span::before{content:"";display:inline-block;width:12px;height:3px;border-radius:2px;background:var(--c);vertical-align:middle;margin-right:5px}
+#tip{position:fixed;pointer-events:none;background:var(--surface-1);color:var(--text-primary);border:1px solid var(--border);
+  border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);display:none;z-index:9;white-space:nowrap}
+details summary{cursor:pointer;color:var(--text-secondary);font-size:12px;margin-top:6px}
+.empty{color:var(--text-secondary);padding:24px 0;text-align:center}
+.note{font-size:12px;color:var(--text-muted);margin-top:8px}
+</style>
+</head>
+<body>
+<div class="viz-root">
+<header>
+  <h1>FX Research Dashboard</h1>
+  <span class="sub" id="gen"></span>
+</header>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-tab="tg">Telegram signals (live)</button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="p3">Phase 3 strategies (backtest)</button>
+</div>
+
+<section id="tab-tg">
+  <div class="filters">
+    <div class="seg" id="tg-period" role="group" aria-label="Period"></div>
+    <select id="tg-channel" aria-label="Channel"></select>
+  </div>
+  <div class="tiles" id="tg-tiles"></div>
+  <div class="grid2">
+    <div class="card"><h2>Result per period</h2><div class="sub">Sum of R (multiples of initial risk) of trades closed in each period</div>
+      <div class="chart" id="tg-bars"></div></div>
+    <div class="card"><h2>Cumulative result</h2><div class="sub">Running total of R over closed trades</div>
+      <div class="chart" id="tg-cum"></div></div>
+  </div>
+  <div class="card"><h2>By period</h2><div class="scroll"><table id="tg-period-table"></table></div></div>
+  <div class="card"><h2>Channel league table</h2>
+    <div class="sub">Click a column to sort. A channel qualifies only with enough closed signals, months tracked, a positive result
+      that survives the correction for the number of channels tracked, and a sufficient profit factor.</div>
+    <div class="scroll"><table id="tg-channels"></table></div></div>
+  <div class="card"><h2>Latest signals received</h2><div class="scroll"><table id="tg-recent"></table></div></div>
+</section>
+
+<section id="tab-p3" hidden>
+  <div class="card"><h2>Family results 2014–2024</h2><div class="sub">Net of spread, slippage, commission and swaps, after the risk rules. Holdout 2025–2026 locked.</div>
+    <div class="scroll"><table id="p3-table"></table></div></div>
+  <div class="card"><h2>Growth of 1 unit</h2><div class="legend" id="p3-legend"></div><div class="chart" id="p3-eq"></div></div>
+  <div class="filters">
+    <div class="seg" id="p3-period" role="group" aria-label="Period"></div>
+    <select id="p3-family" aria-label="Family"></select>
+  </div>
+  <div class="grid2">
+    <div class="card"><h2>Return per period</h2><div class="sub" id="p3-bars-sub"></div><div class="chart" id="p3-bars"></div></div>
+    <div class="card"><h2>By period</h2><div class="scroll"><table id="p3-period-table"></table></div></div>
+  </div>
+</section>
+<p class="note">Research tracking, not financial advice. Telegram results use real Dukascopy bid/ask prices with entry 30 s after receipt;
+signals without a stop loss are counted but excluded from R statistics.</p>
+<div id="tip"></div>
+</div>
+
+<script>
+const PERIODS=[["D","Daily"],["W","Weekly"],["M","Monthly"],["Q","Quarterly"],["Y","Annual"]];
+const SLOTS=["--s1","--s2","--s3","--s4","--s5","--s6","--s7","--s8"];
+const FAMILY_ORDER=["tsmom","donchian","xs_momentum","carry","value","cross_mr","combo"];
+const css=v=>getComputedStyle(document.querySelector(".viz-root")).getPropertyValue(v).trim();
+const $=id=>document.getElementById(id);
+const fmt={r:x=>x==null?"—":(x>=0?"+":"")+x.toFixed(2)+"R",pct:x=>x==null?"—":(x*100).toFixed(1)+"%",
+  spct:x=>x==null?"—":(x>=0?"+":"")+(x*100).toFixed(1)+"%",n:x=>x==null?"—":x.toLocaleString(),num:(x,d=2)=>x==null?"—":x.toFixed(d)};
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function periodKey(iso,p){const d=new Date(iso.slice(0,10)+"T00:00:00Z");const y=d.getUTCFullYear(),m=d.getUTCMonth()+1;
+  if(p==="D")return iso.slice(0,10);
+  if(p==="W"){const wd=(d.getUTCDay()+6)%7;const mon=new Date(d.getTime()-wd*864e5);return "w/c "+mon.toISOString().slice(0,10)}
+  if(p==="M")return `${y}-${String(m).padStart(2,"0")}`;
+  if(p==="Q")return `${y}-Q${Math.ceil(m/3)}`;return String(y)}
+
+// ---------- tooltip
+const tip=$("tip");
+function showTip(e,html){tip.innerHTML=html;tip.style.display="block";const w=tip.offsetWidth;
+  tip.style.left=Math.min(e.clientX+14,innerWidth-w-8)+"px";tip.style.top=(e.clientY+14)+"px"}
+function hideTip(){tip.style.display="none"}
+
+// ---------- charts (SVG, one y-axis each)
+function niceTicks(lo,hi,n=4){if(lo===hi){lo-=1;hi+=1}const span=hi-lo,step0=span/n,mag=Math.pow(10,Math.floor(Math.log10(step0)));
+  const step=[1,2,2.5,5,10].map(s=>s*mag).find(s=>s>=step0);const a=Math.floor(lo/step)*step,b=Math.ceil(hi/step)*step;
+  const t=[];for(let v=a;v<=b+step/2;v+=step)t.push(+v.toFixed(10));return t}
+function frame(el){const W=el.clientWidth||600,H=el.clientHeight||240;return{W,H,m:{l:52,r:12,t:10,b:28}}}
+function svgEl(tag,attrs){const e=document.createElementNS("http://www.w3.org/2000/svg",tag);for(const k in attrs)e.setAttribute(k,attrs[k]);return e}
+
+function barChart(el,labels,values,yfmt,tipfmt){el.innerHTML="";if(!values.length){el.innerHTML='<div class="empty">No closed trades yet</div>';return}
+  const {W,H,m}=frame(el);const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`,role:"img"});el.appendChild(svg);
+  const ticks=niceTicks(Math.min(0,...values),Math.max(0,...values));const y0=ticks[0],y1=ticks[ticks.length-1];
+  const Y=v=>m.t+(H-m.t-m.b)*(1-(v-y0)/(y1-y0));const n=values.length,bw=(W-m.l-m.r)/n,gap=Math.min(2,bw*.25);
+  const g=svgEl("g",{class:"axis"});svg.appendChild(g);
+  ticks.forEach(t=>{g.appendChild(svgEl("line",{x1:m.l,x2:W-m.r,y1:Y(t),y2:Y(t),class:t===0?"zero":"gridline"}));
+    const tx=svgEl("text",{x:m.l-6,y:Y(t)+4,"text-anchor":"end"});tx.textContent=yfmt(t);g.appendChild(tx)});
+  const step=Math.ceil(n/Math.max(1,Math.floor((W-m.l-m.r)/90)));
+  values.forEach((v,i)=>{const x=m.l+i*bw+gap/2,w=Math.max(1,bw-gap),ya=Y(Math.max(v,0)),yb=Y(Math.min(v,0)),h=Math.max(1,yb-ya);
+    const r=Math.min(4,w/2,h);const pos=v>=0;
+    // rounded data-end, square at the baseline
+    const d=pos?`M${x},${yb}V${ya+r}Q${x},${ya} ${x+r},${ya}H${x+w-r}Q${x+w},${ya} ${x+w},${ya+r}V${yb}Z`
+               :`M${x},${ya}V${yb-r}Q${x},${yb} ${x+r},${yb}H${x+w-r}Q${x+w},${yb} ${x+w},${yb-r}V${ya}Z`;
+    svg.appendChild(svgEl("path",{d,fill:css(pos?"--pos":"--neg")}));
+    const hit=svgEl("rect",{x:m.l+i*bw,y:m.t,width:bw,height:H-m.t-m.b,fill:"transparent"});
+    hit.addEventListener("mousemove",e=>showTip(e,tipfmt(i)));hit.addEventListener("mouseleave",hideTip);svg.appendChild(hit);
+    if(i%step===0){const tx=svgEl("text",{x:x+w/2,y:H-8,"text-anchor":"middle"});tx.textContent=labels[i];g.appendChild(tx)}})}
+
+function lineChart(el,labels,series,yfmt,opts={}){el.innerHTML="";if(!labels.length){el.innerHTML='<div class="empty">No data yet</div>';return}
+  const {W,H,m}=frame(el);const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`,role:"img"});el.appendChild(svg);
+  const all=series.flatMap(s=>s.values).filter(v=>v!=null);const ticks=niceTicks(Math.min(opts.base??0,...all),Math.max(opts.base??0,...all));
+  const y0=ticks[0],y1=ticks[ticks.length-1],n=labels.length;const X=i=>m.l+(W-m.l-m.r)*(n===1?0.5:i/(n-1)),Y=v=>m.t+(H-m.t-m.b)*(1-(v-y0)/(y1-y0));
+  const g=svgEl("g",{class:"axis"});svg.appendChild(g);
+  ticks.forEach(t=>{g.appendChild(svgEl("line",{x1:m.l,x2:W-m.r,y1:Y(t),y2:Y(t),class:t===(opts.base??0)?"zero":"gridline"}));
+    const tx=svgEl("text",{x:m.l-6,y:Y(t)+4,"text-anchor":"end"});tx.textContent=yfmt(t);g.appendChild(tx)});
+  const step=Math.ceil(n/Math.max(1,Math.floor((W-m.l-m.r)/90)));
+  labels.forEach((l,i)=>{if(i%step===0){const tx=svgEl("text",{x:X(i),y:H-8,"text-anchor":"middle"});tx.textContent=l;g.appendChild(tx)}});
+  series.forEach(s=>{const d=s.values.map((v,i)=>`${i?"L":"M"}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join("");
+    svg.appendChild(svgEl("path",{d,fill:"none",stroke:s.color,"stroke-width":2,"stroke-linejoin":"round"}))});
+  const cross=svgEl("line",{y1:m.t,y2:H-m.b,stroke:css("--text-muted"),"stroke-width":1,visibility:"hidden"});svg.appendChild(cross);
+  const dots=series.map(s=>{const c=svgEl("circle",{r:4,fill:s.color,stroke:css("--surface-1"),"stroke-width":2,visibility:"hidden"});svg.appendChild(c);return c});
+  const hit=svgEl("rect",{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b,fill:"transparent"});svg.appendChild(hit);
+  hit.addEventListener("mousemove",e=>{const r=svg.getBoundingClientRect();const px=(e.clientX-r.left)*W/r.width;
+    const i=Math.max(0,Math.min(n-1,Math.round((px-m.l)/((W-m.l-m.r)/Math.max(1,n-1)))));
+    cross.setAttribute("x1",X(i));cross.setAttribute("x2",X(i));cross.setAttribute("visibility","visible");
+    series.forEach((s,k)=>{dots[k].setAttribute("cx",X(i));dots[k].setAttribute("cy",Y(s.values[i]));dots[k].setAttribute("visibility","visible")});
+    showTip(e,`<b>${esc(labels[i])}</b><br>`+series.map(s=>`<span style="color:${s.color}">■</span> ${esc(s.name)}: ${yfmt(s.values[i])}`).join("<br>"))});
+  hit.addEventListener("mouseleave",()=>{hideTip();cross.setAttribute("visibility","hidden");dots.forEach(d=>d.setAttribute("visibility","hidden"))})}
+
+function table(el,cols,rows){el.innerHTML="<thead><tr>"+cols.map((c,i)=>`<th class="${c.sort?"sort ":""}${c.cls||""}" data-i="${i}">${c.h}</th>`).join("")+"</tr></thead><tbody>"+
+  rows.map(r=>"<tr>"+cols.map(c=>`<td class="${c.cls||""}">${c.f(r)}</td>`).join("")+"</tr>").join("")+"</tbody>"}
+
+function segmented(el,cur,on){el.innerHTML=PERIODS.map(([k,l])=>`<button data-p="${k}" aria-pressed="${k===cur}">${l}</button>`).join("");
+  el.onclick=e=>{const b=e.target.closest("button");if(!b)return;el.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));on(b.dataset.p)}}
+
+// ---------- Telegram tab
+let D=null,tgP="M",tgC="__all",p3P="Y",p3F=null,chSort={k:"expectancy_r",dir:-1};
+function tgTrades(){const t=(D.telegram?.trades||[]).filter(x=>x.r!=null);
+  if(tgC==="__all")return t;if(tgC==="__q"){const q=new Set(D.telegram.channels.filter(c=>c.qualified).map(c=>c.channel));return t.filter(x=>q.has(x.c))}
+  return t.filter(x=>x.c===tgC)}
+function aggTrades(trades,p){const g=new Map();trades.slice().sort((a,b)=>a.out.localeCompare(b.out)).forEach(t=>{const k=periodKey(t.out,p);
+  if(!g.has(k))g.set(k,[]);g.get(k).push(t.r)});let cum=0;
+  return [...g].map(([k,rs])=>{const tot=rs.reduce((a,b)=>a+b,0),w=rs.filter(x=>x>0),l=rs.filter(x=>x<0);cum+=tot;
+    const lw=-l.reduce((a,b)=>a+b,0);return{k,n:rs.length,win:w.length/rs.length,tot,avg:tot/rs.length,pf:lw>0?w.reduce((a,b)=>a+b,0)/lw:null,cum}})}
+function renderTG(){const T=D.telegram;if(!T){$("tab-tg").innerHTML='<div class="card empty">Telegram tracking has not produced data yet.</div>';return}
+  const tr=tgTrades(),rows=aggTrades(tr,tgP),chans=T.channels;
+  const wins=tr.filter(x=>x.r>0).length,tot=tr.reduce((a,b)=>a+b.r,0);
+  const scope=tgC==="__all"?chans:tgC==="__q"?chans.filter(c=>c.qualified):chans.filter(c=>c.channel===tgC);
+  const tiles=[["Channels tracked",fmt.n(chans.length)],["Qualified channels",fmt.n(chans.filter(c=>c.qualified).length)],
+    ["Signals recorded",fmt.n(scope.reduce((a,c)=>a+(c.signals||0),0))],["Closed (with stop)",fmt.n(tr.length)],
+    ["Open now",fmt.n(scope.reduce((a,c)=>a+(c.open||0),0))],["Win rate",tr.length?fmt.pct(wins/tr.length):"—"],
+    ["Average per trade",tr.length?fmt.r(tot/tr.length):"—"],["Total",tr.length?fmt.r(tot):"—"]];
+  $("tg-tiles").innerHTML=tiles.map(([k,v])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+  barChart($("tg-bars"),rows.map(r=>r.k),rows.map(r=>r.tot),v=>fmt.num(v,1),i=>`<b>${rows[i].k}</b><br>${rows[i].n} trades · ${fmt.pct(rows[i].win)} wins<br>Total ${fmt.r(rows[i].tot)}`);
+  lineChart($("tg-cum"),rows.map(r=>r.k),[{name:"Cumulative R",color:css("--s1"),values:rows.map(r=>r.cum)}],v=>fmt.num(v,1));
+  table($("tg-period-table"),[{h:"Period",f:r=>r.k},{h:"Trades",f:r=>r.n},{h:"Win rate",f:r=>fmt.pct(r.win)},{h:"Total R",f:r=>fmt.r(r.tot)},
+    {h:"Avg R",f:r=>fmt.r(r.avg)},{h:"Profit factor",f:r=>fmt.num(r.pf)},{h:"Cumulative R",f:r=>fmt.r(r.cum)}],rows.slice().reverse());
+  const ccols=[{h:"Channel",k:"channel",f:c=>esc(c.channel)},{h:"Signals",k:"signals",f:c=>fmt.n(c.signals)},{h:"Closed",k:"with_stop",f:c=>fmt.n(c.with_stop)},
+    {h:"Months",k:"months_tracked",f:c=>fmt.num(c.months_tracked,1)},{h:"Win rate",k:"win_rate",f:c=>fmt.pct(c.win_rate)},
+    {h:"Expectancy",k:"expectancy_r",f:c=>fmt.r(c.expectancy_r)},{h:"95% CI low",k:"ci95_low",f:c=>fmt.r(c.ci95_low)},
+    {h:"Corrected low",k:"corrected_low",f:c=>fmt.r(c.corrected_low)},{h:"Profit factor",k:"profit_factor",f:c=>fmt.num(c.profit_factor)},
+    {h:"Open",k:"open",f:c=>fmt.n(c.open)},{h:"Qualified",k:"qualified",f:c=>c.qualified?'<span class="pill ok">Yes</span>':'<span class="pill no">No</span>'}].map(c=>({...c,sort:true}));
+  const cs=chans.slice().sort((a,b)=>{const x=a[chSort.k],y=b[chSort.k];if(x==null)return 1;if(y==null)return -1;return (x>y?1:x<y?-1:0)*chSort.dir});
+  table($("tg-channels"),ccols,cs);
+  $("tg-channels").querySelector("thead").onclick=e=>{const th=e.target.closest("th");if(!th)return;const k=ccols[th.dataset.i].k;
+    chSort={k,dir:chSort.k===k?-chSort.dir:-1};renderTG()};
+  table($("tg-recent"),[{h:"Received (UTC)",f:r=>r.t},{h:"Channel",cls:"l",f:r=>esc(r.c)},{h:"Pair",cls:"l",f:r=>esc(r.p)},{h:"Side",cls:"l",f:r=>esc(r.s)},
+    {h:"Stop",f:r=>r.sl??"—"},{h:"Parse",cls:"l",f:r=>esc(r.status)}],T.recent_signals||[])}
+
+// ---------- Phase 3 tab
+function aggReturns(dates,rets,p){const g=new Map();dates.forEach((d,i)=>{const k=periodKey(d,p);g.set(k,(g.get(k)??1)*(1+rets[i]))});
+  let eq=1;return [...g].map(([k,v])=>{eq*=v;return{k,ret:v-1,eq}})}
+function renderP3(){const P=D.phase3;if(!P){$("tab-p3").innerHTML='<div class="card empty">Phase 3 results will appear here once the backtests have run.</div>';return}
+  const fams=FAMILY_ORDER.filter(f=>P.families[f]).concat(Object.keys(P.families).filter(f=>!FAMILY_ORDER.includes(f)));
+  const color=f=>css(SLOTS[FAMILY_ORDER.indexOf(f)>=0?FAMILY_ORDER.indexOf(f):7]);
+  table($("p3-table"),[{h:"Family",f:f=>f},{h:"Sharpe",f:f=>fmt.num(P.families[f].sharpe)},{h:"CAGR",f:f=>fmt.spct(P.families[f].cagr)},
+    {h:"Volatility",f:f=>fmt.pct(P.families[f].vol)},{h:"Max drawdown",f:f=>fmt.pct(P.families[f].max_drawdown)},
+    {h:"Validation Sharpe",f:f=>fmt.num(P.families[f].val_sharpe)},{h:"Deflated Sharpe",f:f=>fmt.num(P.families[f].dsr)},
+    {h:"Passed",f:f=>P.families[f].passed?'<span class="pill ok">Yes</span>':'<span class="pill no">No</span>'},
+    {h:"Failed gates",cls:"l wrap",f:f=>esc(P.families[f].failed.join(", ").replace(/_/g," ")||"—")}],fams);
+  const eqf=fams.filter(f=>P.returns[f]);let lab=[],ser=[];
+  const monthly=eqf.map(f=>aggReturns(P.dates,P.returns[f],"M"));lab=monthly[0]?.map(r=>r.k)||[];
+  ser=eqf.map((f,i)=>({name:f,color:color(f),values:monthly[i].map(r=>r.eq)}));
+  $("p3-legend").innerHTML=ser.map(s=>`<span style="--c:${s.color}">${esc(s.name)}</span>`).join("");
+  lineChart($("p3-eq"),lab,ser,v=>fmt.num(v,2),{base:1});
+  if(!p3F||!P.returns[p3F])p3F=eqf.includes("combo")?"combo":eqf[0];
+  $("p3-family").innerHTML=eqf.map(f=>`<option ${f===p3F?"selected":""}>${f}</option>`).join("");
+  const rows=aggReturns(P.dates,P.returns[p3F]||[],p3P);
+  $("p3-bars-sub").textContent=`${p3F}: compounded return of each period`;
+  barChart($("p3-bars"),rows.map(r=>r.k),rows.map(r=>r.ret),v=>(v*100).toFixed(0)+"%",i=>`<b>${rows[i].k}</b><br>${fmt.spct(rows[i].ret)}`);
+  table($("p3-period-table"),[{h:"Period",f:r=>r.k},{h:"Return",f:r=>fmt.spct(r.ret)},{h:"Growth of 1",f:r=>fmt.num(r.eq,3)}],rows.slice().reverse())}
+
+// ---------- wiring
+document.querySelector(".tabs").onclick=e=>{const b=e.target.closest(".tab");if(!b)return;
+  document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t===b));
+  $("tab-tg").hidden=b.dataset.tab!=="tg";$("tab-p3").hidden=b.dataset.tab!=="p3";(b.dataset.tab==="tg"?renderTG:renderP3)()};
+segmented($("tg-period"),tgP,p=>{tgP=p;renderTG()});segmented($("p3-period"),p3P,p=>{p3P=p;renderP3()});
+$("tg-channel").onchange=e=>{tgC=e.target.value;renderTG()};$("p3-family").onchange=e=>{p3F=e.target.value;renderP3()};
+addEventListener("resize",()=>{clearTimeout(window._r);window._r=setTimeout(()=>{if(!D)return;$("tab-tg").hidden?renderP3():renderTG()},150)});
+fetch("data.json",{cache:"no-store"}).then(r=>r.json()).then(d=>{D=d;
+  $("gen").textContent="Updated "+d.generated_utc.replace("T"," ").slice(0,16)+" UTC"+(d.telegram?.activation_utc?" · tracking since "+d.telegram.activation_utc.slice(0,10):"");
+  const ch=(d.telegram?.channels||[]).map(c=>c.channel).sort((a,b)=>a.localeCompare(b));
+  $("tg-channel").innerHTML=`<option value="__all">All channels</option><option value="__q">Qualified channels only</option>`+ch.map(c=>`<option>${esc(c)}</option>`).join("");
+  renderTG()}).catch(()=>{$("gen").textContent="data.json not found";});
+</script>
+</body>
+</html>
