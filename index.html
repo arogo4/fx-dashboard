@@ -60,21 +60,99 @@ th.sort{cursor:pointer}
   border-radius:8px;padding:6px 9px;font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.12);display:none;z-index:9;white-space:nowrap}
 details summary{cursor:pointer;color:var(--text-secondary);font-size:12px;margin-top:6px}
 .empty{color:var(--text-secondary);padding:24px 0;text-align:center}
+body.locked .viz-root > :not(#unlock){display:none}
+#unlock{max-width:420px;margin:12vh auto;padding:26px;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface-1)}
+#unlock h2{margin:0 0 6px}
+#unlock label{display:block;font-size:13px;color:var(--text-secondary);margin:14px 0 4px}
+#unlock input[type=password]{width:100%;padding:9px 10px;border:1px solid var(--border);
+  border-radius:8px;font:inherit;background:var(--surface-0);color:var(--text-primary)}
+#unlock .rowck{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;
+  color:var(--text-secondary)}
+#unlock button{margin-top:16px;width:100%;padding:10px;border:0;border-radius:8px;
+  background:var(--accent);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+#unlock button[disabled]{opacity:.6;cursor:progress}
+#unlock-error{color:var(--neg);font-size:13px;margin-top:10px;min-height:18px}
+.card h2{cursor:pointer;user-select:none}
+.card h2::before{content:"\25BE ";color:var(--text-muted);font-size:11px}
+.card.fold h2::before{content:"\25B8 "}
+.card.fold > :not(h2){display:none}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.filters select{padding:6px 9px;border:1px solid var(--border);border-radius:8px;font:inherit;
+  background:var(--surface-1);color:var(--text-primary)}
+.filters .fsum{font-size:12px;color:var(--text-muted)}
 .note{font-size:12px;color:var(--text-muted);margin-top:8px}
 </style>
 </head>
-<body>
+<body class="locked">
 <div class="viz-root">
+<form id="unlock" hidden autocomplete="on">
+  <h2>Locked</h2>
+  <div class="sub">This dashboard's data is encrypted. Enter the passphrase to decrypt it in
+    your browser &mdash; it is never sent anywhere.</div>
+  <label for="pw">Passphrase</label>
+  <input type="password" id="pw" autocomplete="current-password" required>
+  <div class="rowck"><input type="checkbox" id="remember">
+    <label for="remember" style="margin:0">Remember on this device</label></div>
+  <button type="submit" id="open">Unlock</button>
+  <div id="unlock-error" role="alert"></div>
+  <div class="note">Stays decrypted only in this tab unless you tick remember, which stores the
+    passphrase in this browser. Do not tick it on a shared computer.</div>
+</form>
 <header>
   <h1>FX Research Dashboard</h1>
   <span class="sub" id="gen"></span>
+  <button id="lock-btn" class="tab" title="Forget the passphrase on this device and lock">Lock</button>
 </header>
 <div class="tabs" role="tablist">
-  <button class="tab" role="tab" aria-selected="true" data-tab="tg">Telegram signals (live)</button>
+  <button class="tab" role="tab" aria-selected="true" data-tab="bot">Bot</button>
+  <button class="tab" role="tab" aria-selected="false" data-tab="tg">Telegram signals (live)</button>
   <button class="tab" role="tab" aria-selected="false" data-tab="p3">Phase 3 strategies (backtest)</button>
 </div>
 
-<section id="tab-tg">
+<section id="tab-bot">
+  <div class="card" id="bot-banner" hidden></div>
+  <div class="filters" id="bot-filters" aria-label="Filters">
+    <select id="f-range" aria-label="Date range">
+      <option value="all">All dates</option><option value="today">Today</option>
+      <option value="yday">Yesterday</option><option value="7d">Last 7 days</option>
+      <option value="30d">Last 30 days</option><option value="tweek">This week</option>
+      <option value="lweek">Last week</option><option value="tmonth">This month</option>
+      <option value="lmonth">Last month</option>
+    </select>
+    <select id="f-result" aria-label="Result">
+      <option value="all">All results</option><option value="won">Won</option>
+      <option value="lost">Lost</option>
+    </select>
+    <select id="f-mode" aria-label="Mode"></select>
+    <span class="fsum" id="f-sum"></span>
+  </div>
+  <div class="row">
+    <div class="seg" id="bot-period" role="group" aria-label="Group by"></div>
+  </div>
+  <div class="tiles" id="bot-tiles"></div>
+  <div class="grid2">
+    <div class="card"><h2>Equity</h2><div class="chart" id="bot-eq"></div></div>
+    <div class="card"><h2>Return per period</h2><div class="sub" id="bot-bars-sub"></div>
+      <div class="chart" id="bot-bars"></div></div>
+  </div>
+  <div class="card"><h2>By period</h2><div class="scroll"><table id="bot-period-table"></table></div></div>
+  <div class="card"><h2>Execution measured against what the research assumed</h2>
+    <div class="sub" id="bot-exec-sub"></div>
+    <div class="scroll"><table id="bot-exec"></table></div></div>
+  <div class="grid2">
+    <div class="card"><h2>How positions end</h2><div class="scroll"><table id="bot-exits"></table></div></div>
+    <div class="card"><h2>Spread by session</h2><div class="scroll"><table id="bot-sessions"></table></div></div>
+  </div>
+  <div class="card"><h2>How far trades went against the stop</h2>
+    <div class="sub">The worst excursion (MAE) is the only direct evidence of whether the stop sits
+      in the right place. Winners that routinely graze the stop mean it is too tight.</div>
+    <div class="scroll"><table id="bot-mae"></table></div></div>
+  <div class="card"><h2>Where setups are lost</h2><div class="scroll"><table id="bot-funnel"></table></div></div>
+  <div class="card"><h2>Trades</h2><div class="scroll"><table id="bot-trades"></table></div></div>
+</section>
+
+<section id="tab-tg" hidden>
   <div class="filters">
     <div class="seg" id="tg-period" role="group" aria-label="Period"></div>
     <select id="tg-channel" aria-label="Channel"></select>
@@ -187,7 +265,165 @@ function segmented(el,cur,on){el.innerHTML=PERIODS.map(([k,l])=>`<button data-p=
   el.onclick=e=>{const b=e.target.closest("button");if(!b)return;el.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));on(b.dataset.p)}}
 
 // ---------- Telegram tab
-let D=null,tgP="M",tgC="__all",p3P="Y",p3F=null,chSort={k:"expectancy_r",dir:-1};
+let D=null,tgP="M",tgC="__all",p3P="Y",p3F=null,botP="D",chSort={k:"expectancy_r",dir:-1};
+
+// ---------- Bot tab
+const PKEY={D:"daily",W:"weekly",M:"monthly",Q:"quarterly",Y:"annually"};
+const FS={range:"all",result:"all",mode:"all"};
+const human=m=>m==null?"—":m<60?Math.round(m)+"m":(m/60).toFixed(1)+"h";
+
+function rangeBounds(sel){const now=new Date();const d0=new Date(Date.UTC(now.getUTCFullYear(),
+  now.getUTCMonth(),now.getUTCDate()));const day=864e5;const wd=(d0.getUTCDay()+6)%7;
+  const mon=new Date(d0.getTime()-wd*day);
+  switch(sel){
+    case "today":return [d0,new Date(d0.getTime()+day)];
+    case "yday":return [new Date(d0.getTime()-day),d0];
+    case "7d":return [new Date(d0.getTime()-6*day),new Date(d0.getTime()+day)];
+    case "30d":return [new Date(d0.getTime()-29*day),new Date(d0.getTime()+day)];
+    case "tweek":return [mon,new Date(mon.getTime()+7*day)];
+    case "lweek":return [new Date(mon.getTime()-7*day),mon];
+    case "tmonth":return [new Date(Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth(),1)),
+                          new Date(Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth()+1,1))];
+    case "lmonth":return [new Date(Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth()-1,1)),
+                          new Date(Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth(),1))];
+    default:return null}}
+
+function filteredTrades(){const T=(D.bot&&D.bot.trades)||[];const bounds=rangeBounds(FS.range);
+  return T.filter(t=>{
+    if(FS.mode!=="all"&&t.m!==FS.mode)return false;
+    if(FS.result==="won"&&!(t.r>0))return false;
+    if(FS.result==="lost"&&!(t.r<=0))return false;
+    if(bounds){const ts=new Date((t.out||"").replace(" ","T")+"Z");
+      if(isNaN(ts)||ts<bounds[0]||ts>=bounds[1])return false}
+    return true})}
+
+function botStats(T){const r=T.map(t=>t.r).filter(v=>v!=null);
+  if(!r.length)return{n:0};
+  const wins=r.filter(v=>v>0),losses=r.filter(v=>v<=0);
+  const gross=wins.reduce((a,b)=>a+b,0),bad=Math.abs(losses.reduce((a,b)=>a+b,0));
+  let cum=0,peak=0,dd=0,run=0,worst=0;
+  for(const v of r){cum+=v;peak=Math.max(peak,cum);dd=Math.max(dd,peak-cum);
+    if(v<=0){run++;worst=Math.max(worst,run)}else run=0}
+  const mins=T.map(t=>t.mins).filter(v=>v!=null);
+  return{n:r.length,sum:cum,avg:cum/r.length,win:wins.length/r.length,
+    pf:bad>0?gross/bad:null,ddR:dd,worstRun:worst,
+    avgMins:mins.length?mins.reduce((a,b)=>a+b,0)/mins.length:null,
+    se:r.length>1?Math.sqrt(r.reduce((a,b)=>a+(b-cum/r.length)**2,0)/(r.length-1)/r.length):null}}
+
+function renderBot(){const B=D.bot;
+  const ids=["bot-period-table","bot-exec","bot-funnel","bot-trades","bot-exits","bot-sessions","bot-mae"];
+  if(!B){$("bot-tiles").innerHTML='<div class="empty">No bot journal yet. Run the bot, then publish again.</div>';
+    ["bot-eq","bot-bars"].forEach(i=>$(i).innerHTML="");ids.forEach(i=>$(i).innerHTML="");
+    $("bot-banner").hidden=true;$("bot-filters").hidden=true;return}
+  $("bot-filters").hidden=false;
+  if(!$("f-mode").options.length){
+    $("f-mode").innerHTML='<option value="all">All modes</option>'+
+      (B.modes||[]).map(m=>`<option value="${esc(m)}">${esc(m)} only</option>`).join("")}
+  const T=filteredTrades(),S=botStats(T),A=B.assumptions||{};
+  const ban=$("bot-banner");ban.hidden=false;
+  const tStat=S.se?Math.abs(S.avg/S.se):null;
+  ban.innerHTML=`<h2>Reading this honestly</h2><div class="sub">`+
+    `Modes recorded: <b>${esc((B.modes||[]).join(", ")||"none")}</b>. `+
+    `Backtested expectancy is <b>${fmt.r(A.backtested_expectancy_r)} per trade</b>, and the `+
+    `Phase 5 gross edge was <b>${fmt.r(A.phase5_gross_r)}</b> &mdash; negative before any cost. `+
+    (S.n?(S.n<100?`On ${S.n} trades the result cannot be told apart from either zero or that `+
+      `expectation${tStat!=null?` (t = ${tStat.toFixed(2)})`:""}; it starts to mean something in `+
+      `the hundreds.`:`At ${S.n} trades this is now comparable against the backtest, though it `+
+      `is still not a validated edge.`):"No closed trades in this selection.")+
+    ` Figures are percentages and R only &mdash; no account balances are published.</div>`;
+  $("f-sum").textContent=`${T.length} trade${T.length===1?"":"s"} shown`;
+
+  const tiles=[["Closed",fmt.n(S.n)],["Win rate",S.n?(S.win*100).toFixed(0)+"%":"—"],
+    ["Net",fmt.r(S.sum)],["Avg",fmt.r(S.avg)],
+    ["Profit factor",S.pf==null?"—":S.pf.toFixed(2)],
+    ["Max DD (R)",S.n?S.ddR.toFixed(2)+"R":"—"],
+    ["Worst losing run",S.n?S.worstRun:"—"],
+    ["Avg in trade",human(S.avgMins)],
+    ["Max DD (equity)",B.max_drawdown_pct==null?"—":B.max_drawdown_pct.toFixed(2)+"%"]];
+  $("bot-tiles").innerHTML=tiles.map(([k,v])=>`<div class="tile"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  const c=B.equity_curve||[],ev=c.map(x=>x.e).filter(v=>v!=null);
+  lineChart($("bot-eq"),c.map(x=>x.t),[{name:"Equity",color:css("--s1"),values:c.map(x=>x.e)}],
+    v=>v.toFixed(1),{base:ev.length?Math.min(...ev):100});
+
+  // group the filtered trades for the period view
+  const g={};for(const t of T){const k=periodKey((t.out||"").slice(0,10),botP);
+    (g[k]=g[k]||[]).push(t)}
+  const keys=Object.keys(g).sort();
+  const rows=keys.map(k=>{const v=g[k],rr=v.map(x=>x.r).filter(x=>x!=null);
+    const sum=rr.reduce((a,b)=>a+b,0);
+    return{period:k,sum_r:sum,trades:v.length,
+      win:rr.length?rr.filter(x=>x>0).length/rr.length:null}});
+  $("bot-bars-sub").textContent="Net R of each period (filtered)";
+  barChart($("bot-bars"),rows.map(r=>r.period),rows.map(r=>r.sum_r),v=>v.toFixed(1)+"R",
+    i=>`<b>${rows[i].period}</b><br>${fmt.r(rows[i].sum_r)}<br>${rows[i].trades} trades`);
+  table($("bot-period-table"),[{h:"Period",f:r=>esc(r.period)},{h:"R",f:r=>fmt.r(r.sum_r)},
+    {h:"Trades",f:r=>fmt.n(r.trades)},
+    {h:"Win rate",f:r=>r.win==null?"—":(r.win*100).toFixed(0)+"%"}],rows.slice().reverse());
+
+  // execution measured vs assumed
+  const ex=B.execution||{},sl=ex.slippage||{},er=[];
+  const sp=(ex.spread||{});
+  if(sp.in_session_median_pips!=null||sp.median_pips!=null)
+    er.push({k:"Spread (median, in session)",m:(sp.in_session_median_pips??sp.median_pips)+" pips",
+      a:A.spread_markup_pips+" pips markup",v:""});
+  for(const [key,label] of [["entry","Entry slippage"],["broker_exit","Stop slippage"],
+      ["target_exit","Target slippage"]]){const d=sl[key];if(!d)continue;
+    er.push({k:label,m:d.mean_adverse_pips==null?"—":d.mean_adverse_pips+" pips",
+      a:(d.assumed_pips==null?"—":d.assumed_pips+" pips"),v:d.verdict||d.status||""})}
+  if(ex.fills&&ex.fills.fill_ratio!=null)
+    er.push({k:"Fill ratio",m:(ex.fills.fill_ratio*100).toFixed(1)+"%",a:"100% assumed",v:""});
+  $("bot-exec-sub").textContent=er.length?"Four phases of backtesting rested on these numbers.":"";
+  table($("bot-exec"),[{h:"Measurement",f:r=>esc(r.k)},{h:"Measured",f:r=>esc(r.m)},
+    {h:"Assumed",f:r=>esc(r.a)},{h:"",f:r=>esc(r.v)}],er);
+  const rv=ex.restated_verdict;
+  if(rv&&rv.note&&!$("bot-exec").dataset.noted){$("bot-exec").dataset.noted="1";
+    $("bot-exec").insertAdjacentHTML("afterend",`<div class="note">${esc(rv.note)}</div>`)}
+
+  // how positions end
+  const byWhy={};for(const t of T){const k=t.why||"closed";
+    const e=byWhy[k]=byWhy[k]||{n:0,r:0};e.n++;e.r+=(t.r||0)}
+  table($("bot-exits"),[{h:"Ending",f:r=>esc(r.k)},{h:"Count",f:r=>fmt.n(r.n)},
+    {h:"Share",f:r=>T.length?(r.n/T.length*100).toFixed(0)+"%":"—"},
+    {h:"Net R",f:r=>fmt.r(r.r)}],
+    Object.entries(byWhy).map(([k,v])=>({k,...v})).sort((a,b)=>b.n-a.n));
+
+  const ss=B.spread_by_session||{};
+  table($("bot-sessions"),[{h:"Session",f:r=>esc(r.k)},{h:"Observations",f:r=>fmt.n(r.n)},
+    {h:"Median",f:r=>r.median_pips+" pips"},{h:"90th pct",f:r=>r.p90_pips+" pips"}],
+    Object.entries(ss).map(([k,v])=>({k,...v})));
+
+  // excursions: did the stop sit in the right place
+  const mae=T.filter(t=>t.mae!=null);
+  if(!mae.length){$("bot-mae").innerHTML='<tbody><tr><td class="muted">Not recorded yet &mdash; '+
+    'excursions are captured from the next run onwards.</td></tr></tbody>'}
+  else{const grp=[["Winners",mae.filter(t=>t.r>0)],["Losers",mae.filter(t=>t.r<=0)]];
+    table($("bot-mae"),[{h:"Group",f:r=>esc(r.k)},{h:"Trades",f:r=>fmt.n(r.n)},
+      {h:"Median worst excursion",f:r=>r.mae==null?"—":r.mae.toFixed(2)+"R"},
+      {h:"Median best excursion",f:r=>r.mfe==null?"—":r.mfe.toFixed(2)+"R"}],
+      grp.map(([k,v])=>({k,n:v.length,
+        mae:v.length?median(v.map(t=>t.mae)):null,
+        mfe:v.length?median(v.map(t=>t.mfe).filter(x=>x!=null)):null})))}
+
+  const f=ex.funnel||B.funnel||{};
+  const fr=[["Cycles","cycles"],["In session","in_session"],["Passed gates","passed_gates"],
+    ["Signalled","signalled"],["Entries taken","entries_taken"],
+    ["Dry-run entries (not sent)","dry_run_entries"],["Rejected by plan","rejected_by_plan"],
+    ["Blocked by risk","blocked_by_risk"],["Order failures","order_failures"],["Halts","halts"]]
+    .filter(([,k])=>f[k]!=null).map(([h,k])=>({h,v:f[k]}));
+  table($("bot-funnel"),[{h:"Stage",f:r=>esc(r.h)},{h:"Count",f:r=>fmt.n(r.v)}],fr);
+
+  table($("bot-trades"),[{h:"Entered",f:r=>esc((r.in||"").replace("T"," "))},
+    {h:"Exited",f:r=>esc((r.out||"").replace("T"," "))},
+    {h:"Side",f:r=>r.s>0?"buy":"sell"},{h:"R",f:r=>fmt.r(r.r)},
+    {h:"Pips",f:r=>fmt.num(r.pips,1)},{h:"Held",f:r=>human(r.mins)},
+    {h:"Ending",f:r=>esc(r.why||"")},{h:"Mode",f:r=>esc(r.m||"")}],
+    T.slice(-200).reverse())}
+
+function median(a){const v=a.filter(x=>x!=null).slice().sort((x,y)=>x-y);
+  if(!v.length)return null;const m=v.length>>1;
+  return v.length%2?v[m]:(v[m-1]+v[m])/2}
+
 function tgTrades(){const t=(D.telegram?.trades||[]).filter(x=>x.r!=null);
   if(tgC==="__all")return t;if(tgC==="__q"){const q=new Set(D.telegram.channels.filter(c=>c.qualified).map(c=>c.channel));return t.filter(x=>q.has(x.c))}
   return t.filter(x=>x.c===tgC)}
@@ -246,15 +482,75 @@ function renderP3(){const P=D.phase3;if(!P){$("tab-p3").innerHTML='<div class="c
 // ---------- wiring
 document.querySelector(".tabs").onclick=e=>{const b=e.target.closest(".tab");if(!b)return;
   document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-selected",t===b));
-  $("tab-tg").hidden=b.dataset.tab!=="tg";$("tab-p3").hidden=b.dataset.tab!=="p3";(b.dataset.tab==="tg"?renderTG:renderP3)()};
-segmented($("tg-period"),tgP,p=>{tgP=p;renderTG()});segmented($("p3-period"),p3P,p=>{p3P=p;renderP3()});
+  $("tab-bot").hidden=b.dataset.tab!=="bot";$("tab-tg").hidden=b.dataset.tab!=="tg";$("tab-p3").hidden=b.dataset.tab!=="p3";
+  ({bot:renderBot,tg:renderTG,p3:renderP3})[b.dataset.tab]()};
+segmented($("bot-period"),botP,p=>{botP=p;renderBot()});
+["f-range","f-result","f-mode"].forEach(id=>{$(id).onchange=e=>{
+  FS[id.slice(2)]=e.target.value;renderBot()}});
+$("lock-btn")&&($("lock-btn").onclick=()=>{
+  try{localStorage.removeItem(KEYNAME);sessionStorage.removeItem(KEYNAME)}catch(_){}
+  location.reload()});segmented($("tg-period"),tgP,p=>{tgP=p;renderTG()});segmented($("p3-period"),p3P,p=>{p3P=p;renderP3()});
 $("tg-channel").onchange=e=>{tgC=e.target.value;renderTG()};$("p3-family").onchange=e=>{p3F=e.target.value;renderP3()};
-addEventListener("resize",()=>{clearTimeout(window._r);window._r=setTimeout(()=>{if(!D)return;$("tab-tg").hidden?renderP3():renderTG()},150)});
-fetch("data.json",{cache:"no-store"}).then(r=>r.json()).then(d=>{D=d;
-  $("gen").textContent="Updated "+d.generated_utc.replace("T"," ").slice(0,16)+" UTC"+(d.telegram?.activation_utc?" · tracking since "+d.telegram.activation_utc.slice(0,10):"");
-  const ch=(d.telegram?.channels||[]).map(c=>c.channel).sort((a,b)=>a.localeCompare(b));
-  $("tg-channel").innerHTML=`<option value="__all">All channels</option><option value="__q">Qualified channels only</option>`+ch.map(c=>`<option>${esc(c)}</option>`).join("");
-  renderTG()}).catch(()=>{$("gen").textContent="data.json not found";});
+addEventListener("resize",()=>{clearTimeout(window._r);window._r=setTimeout(()=>{if(!D)return;(!$("tab-bot").hidden?renderBot:!$("tab-tg").hidden?renderTG:renderP3)()},150)});
+// ---------- unlock / decrypt
+// The data file is encrypted before it is committed, so the host only ever serves ciphertext.
+// The passphrase is turned into a key here, in the browser, and never leaves it.
+const b64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+const KEYNAME="fxdash_pw";
+
+async function decryptPayload(blob,pass){
+  const enc=new TextEncoder();
+  const base=await crypto.subtle.importKey("raw",enc.encode(pass),"PBKDF2",false,["deriveKey"]);
+  const key=await crypto.subtle.deriveKey(
+    {name:"PBKDF2",salt:b64(blob.kdf.salt),iterations:blob.kdf.iterations,hash:blob.kdf.hash},
+    base,{name:"AES-GCM",length:256},false,["decrypt"]);
+  const plain=await crypto.subtle.decrypt({name:"AES-GCM",iv:b64(blob.cipher.iv)},key,b64(blob.ct));
+  return JSON.parse(new TextDecoder().decode(plain))}
+
+function boot(d){D=d;
+  document.body.classList.remove("locked");$("unlock").hidden=true;
+  $("gen").textContent="Updated "+(d.generated_utc||"").replace("T"," ").slice(0,16)+" UTC"+
+    (d.telegram&&d.telegram.activation_utc?" · tracking since "+d.telegram.activation_utc.slice(0,10):"");
+  const ch=((d.telegram&&d.telegram.channels)||[]).map(c=>c.channel).sort((a,b)=>a.localeCompare(b));
+  $("tg-channel").innerHTML='<option value="__all">All channels</option>'+
+    '<option value="__q">Qualified channels only</option>'+ch.map(c=>`<option>${esc(c)}</option>`).join("");
+  renderBot()}
+
+let BLOB=null;
+async function tryUnlock(pass,remember){
+  const err=$("unlock-error"),btn=$("open");
+  err.textContent="";btn.disabled=true;btn.textContent="Decrypting…";
+  try{const d=await decryptPayload(BLOB,pass);
+    (remember?localStorage:sessionStorage).setItem(KEYNAME,pass);
+    boot(d);return true}
+  catch(e){
+    try{localStorage.removeItem(KEYNAME);sessionStorage.removeItem(KEYNAME)}catch(_){}
+    err.textContent="That passphrase did not decrypt the data.";return false}
+  finally{btn.disabled=false;btn.textContent="Unlock"}}
+
+$("unlock").addEventListener("submit",async e=>{e.preventDefault();
+  await tryUnlock($("pw").value,$("remember").checked)});
+
+fetch("data.json",{cache:"no-store"}).then(r=>{
+    if(!r.ok)throw new Error("http "+r.status);return r.json()})
+  .then(async d=>{
+    if(!(d&&d.ct&&d.kdf)){boot(d);return}          // published unencrypted
+    BLOB=d;
+    let saved=null;try{saved=localStorage.getItem(KEYNAME)||sessionStorage.getItem(KEYNAME)}catch(_){}
+    if(saved&&await tryUnlock(saved,!!localStorage.getItem(KEYNAME)))return;
+    $("unlock").hidden=false;$("pw").focus()})
+  .catch(()=>{document.body.classList.remove("locked");
+    $("gen").textContent="data.json not found"});
+
+// ---------- collapsible cards, remembered per browser
+const FOLD=(()=>{try{return JSON.parse(localStorage.getItem("fxdash_fold")||"{}")}catch(_){return{}}})();
+document.addEventListener("click",e=>{const h=e.target.closest(".card > h2");if(!h)return;
+  const card=h.parentElement,key=h.textContent.trim();
+  card.classList.toggle("fold");FOLD[key]=card.classList.contains("fold");
+  try{localStorage.setItem("fxdash_fold",JSON.stringify(FOLD))}catch(_){}});
+new MutationObserver(()=>{document.querySelectorAll(".card > h2").forEach(h=>{
+  if(FOLD[h.textContent.trim()])h.parentElement.classList.add("fold")})})
+  .observe(document.body,{childList:true,subtree:true});
 </script>
 </body>
 </html>
